@@ -1,0 +1,16 @@
+#!/bin/sh
+
+date=$(date '+%Y-%m-%d %H-%M-%S')
+mkdir "/target/$date"
+mount --bind "/target/$date" /target
+mkdir --parents /target/etc/initramfs-tools/scripts/local-bottom
+echo '#!/bin/sh
+
+case $1 in
+prereqs)
+  exit 0
+  ;;
+esac
+
+busybox mount --bind "$rootmnt/'"$date"'" "$rootmnt"' > /target/etc/initramfs-tools/scripts/local-bottom/bind-mount
+chmod +x /target/etc/initramfs-tools/scripts/local-bottom/bind-mount

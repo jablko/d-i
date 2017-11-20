@@ -1,0 +1,1 @@
+git+https://anonscm.debian.org/git/apt/python-apt.git@1.1.0_beta5

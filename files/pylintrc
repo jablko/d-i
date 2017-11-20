@@ -1,0 +1,40 @@
+[MASTER]
+persistent=no
+
+[MESSAGES CONTROL]
+disable=
+
+  # basic
+  function-redefined,
+  invalid-name,
+  missing-docstring,
+
+  # classes
+  no-self-argument,
+  protected-access,
+
+  # design
+  too-few-public-methods,
+
+  # format
+  line-too-long,
+  bad-continuation,
+
+  # imports
+  wildcard-import,
+
+  # iterable_check
+  not-an-iterable,
+
+  # typecheck
+  no-member,
+
+  # variables
+  redefined-outer-name,
+  unused-argument,
+  unused-wildcard-import,
+  unused-variable,
+  global-statement,
+
+[FORMAT]
+indent-string='  '

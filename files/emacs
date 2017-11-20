@@ -1,0 +1,23 @@
+(setq
+  ess-toggle-underscore nil
+  gdb-many-windows t
+  require-final-newline t
+  sentence-end-double-space nil
+)
+(setq-default fill-column 72)
+(ido-mode)
+(add-hook 'after-init-hook #'global-flycheck-mode)
+(add-hook 'dired-load-hook (lambda () (load "dired-x")))
+(load "/usr/share/emacs/site-lisp/clang-format-4.0/clang-format")
+
+(setq
+  focus-follows-mouse t
+  mouse-autoselect-window t
+)
+
+(setq-default evil-symbol-word-search t)
+(require 'evil)
+(evil-mode)
+
+(setq show-paren-delay 0)
+(show-paren-mode)

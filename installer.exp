@@ -1,0 +1,131 @@
+package require tcl::transform::core
+
+oo::class create transterm {
+  superclass tcl::transform::core
+
+  variable next_row next_col last_row last_col
+
+  constructor {} {
+    set next_row 0
+    set next_col 0
+    set last_row 0
+    set last_col 0
+  }
+
+  method read_raw {string} {
+    if {$string ne ""} {
+      if {$next_row == $last_row} {
+        append result [string repeat " " [expr {$next_col - $last_col}]] $string
+      } else {
+        append result [string repeat \n [expr {max($next_row - $last_row, 1)}]] [string repeat " " $next_col] $string
+        set last_row $next_row
+      }
+      incr next_col [string length $string]
+      set last_col $next_col
+      return $result
+    }
+  }
+
+  method read {c data} {
+    set first 0
+    while {[regexp -indices -start $first "\x1b\\\x5b(\[\x30-\x3a]*);(\[\x30-\x3a]*)\x48" $data match 1 2]} {
+      append result [my read_raw [string trimright [string range $data $first [expr {[lindex $match 0] - 1}]]]]
+      set next_row [string range $data {*}$1]
+      set next_col [string range $data {*}$2]
+      set first [expr {[lindex $match 1] + 1}]
+    }
+    append result [my read_raw [string trimright [string range $data $first end]]]
+  }
+
+  method write {c data} {
+    return $data
+  }
+}
+
+set ESC \x1b
+set CSI $ESC\x5b
+
+set env(TERMINFO) terminfo
+exec tic - << "
+transterm,
+  cup=$CSI%p1%d;%p2%d\x48,
+  dl=,
+  il=,
+"
+set env(TERM) transterm
+spawn qemu-system-$env(DEB_HOST_GNU_CPU) \
+  -machine accel=kvm:tcg \
+  -smp [exec nproc] \
+  -m 1G \
+  -cdrom $argv \
+  -drive file=disk.img,if=virtio \
+  -curses \
+  -net nic,model=virtio \
+  -net user,tftp=..,hostfwd=::2222-:22 \
+
+chan push $spawn_id [transterm new]
+expect "640 x 480 Graphic mode"
+send \x1b
+expect boot:
+expect_background *
+set send_slow {15 1}
+send -s "auto\
+  TERM=dumb\
+  DEBIAN_FRONTEND=text\
+  vga=normal\
+  fb=false\
+  url=tftp://10.0.2.2\
+  modules=network-console\
+  network-console/password=insecure\
+  passwd/user-password=insecure\
+  passwd/user-password-again=insecure\
+  partman-auto/method=regular\
+  partman/choose_partition=finish\
+  partman/confirm_nooverwrite=true\
+  finish-install/reboot_in_progress=\
+  debian-installer/exit/poweroff=true\
+  save-logs/menu=web\
+  di-utils-reboot/really_reboot=true\r"
+set env(TERM) dumb
+spawn ssh \
+  -o StrictHostKeyChecking=no \
+  -o UserKnownHostsFile=/dev/null \
+  -p 2222 \
+  installer@localhost
+expect {
+  -timeout -1
+  eof {
+    if {[lindex [wait] 3]} {
+      spawn -noecho ssh \
+        -o StrictHostKeyChecking=no \
+        -o UserKnownHostsFile=/dev/null \
+        -p 2222 \
+        -q \
+        installer@localhost
+      exp_continue
+    }
+  }
+  password:
+}
+exit
+send insecure\r
+set status 0
+interact {
+  -o
+  {[Press enter to continue]} {
+    send \r
+  }
+  "!! ERROR: Installation step failed" {
+    send \r22\r
+    expect "Web server started"
+    exec wget \
+      --no-verbose \
+      --no-host-directories \
+      --directory-prefix installer \
+      --recursive \
+      localhost:8080
+    send \r25\r
+    set status 1
+  }
+}
+exit $status
