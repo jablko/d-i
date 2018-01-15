@@ -1,0 +1,56 @@
+spawn -pty
+set serial $spawn_id
+spawn qemu-system-[exec arch] \
+  -machine accel=kvm:tcg \
+  -smp [exec nproc] \
+  -m 1G \
+  -cdrom $argv \
+  -drive file=disk.img,if=virtio \
+  -curses \
+  -net nic,model=virtio \
+  -net user,tftp=..,hostfwd=::8080-:80 \
+  -serial $spawn_out(slave,name) \
+
+expect "640 x 480 Graphic mode"
+send \033
+expect boot:
+set send_slow {10 1}
+send -s "auto\
+  console=ttyS0\
+  TERM=dumb\
+  DEBIAN_FRONTEND=text\
+  url=tftp://10.0.2.2\
+  passwd/user-password=insecure\
+  passwd/user-password-again=insecure\
+  partman-auto/method=regular\
+  partman/choose_partition=finish\
+  partman/confirm_nooverwrite=true\
+  finish-install/reboot_in_progress=\
+  debian-installer/exit/poweroff=true\
+  save-logs/menu=web\
+  di-utils-reboot/really_reboot=true\r"
+set status 0
+interact {
+  -input $spawn_id
+  eof {
+    return
+  }
+  -input $user_spawn_id -output $serial
+  -input $serial -output $user_spawn_id
+  {[Press enter to continue]} {
+    send -i $serial \r
+  }
+  "!! ERROR: Installation step failed" {
+    send -i $serial \r22\r
+    expect -i $serial "Web server started"
+    spawn wget \
+      --no-host-directories \
+      --directory-prefix installer \
+      --recursive \
+      localhost:8080
+    interact
+    send -i $serial \r25\r
+    set status 1
+  }
+}
+exit $status

@@ -1,0 +1,29 @@
+#!/bin/sh
+
+sed -i 's/#deb-src /deb-src /' /etc/apt/sources.list
+git config --global user.name 'Jack Bates'
+git config --global user.email jack@nottheoilrig.com
+cat <<'EOF' >> ~/.bashrc
+shopt -s nocaseglob
+
+backup() {
+  for filename; do
+    'cp' --backup=numbered "$filename" ~/backup/"$(basename "$filename")-$(date +%s)"
+  done
+}
+
+mkcd() {
+  mkdir "$@" && cd "${@: -1}"
+}
+
+trash() {
+  'mv' --backup=numbered "$@" ~/trash
+}
+
+# tmux-256color requires ncurses-term, whereas screen-256color requires
+# only ncurses-base.
+export TERM="${TERM/#tmux/screen}"
+
+export LESS=FiRX
+export PROMPT_COMMAND="__git_ps1 '${PS1%\\$ }' '$ '"
+EOF

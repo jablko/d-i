@@ -1,0 +1,49 @@
+# https://github.com/jordansissel/xdotool/issues/37
+xdotool \
+  search . \
+  behave %@ focus exec bash -c '
+    # xdotool[1]: Window left
+    # xdotool[2]: Window top
+    # xdotool[3]: Window width
+    # xdotool[4]: Window height
+    # xdotool[6]: Mouse X
+    # xdotool[7]: Mouse Y
+    xdotool=($(
+      xdotool \
+        getactivewindow \
+        getwindowgeometry --shell \
+        getmouselocation --shell \
+    ))
+    # extents[2]: Left
+    # extents[3]: Right
+    # extents[4]: Top
+    # extents[5]: Bottom
+    IFS='\'', '\''
+    extents=($(xprop -id $((xdotool[0])) _NET_FRAME_EXTENTS))
+
+    x_min=$((xdotool[1] - extents[2]))
+    y_min=$((xdotool[2] - extents[4]))
+    x_max=$((x_min + xdotool[3] - 1))
+    y_max=$((y_min + xdotool[4] - 1))
+
+    x_old=$((xdotool[6]))
+    y_old=$((xdotool[7]))
+    x_new=$((
+      x_old < x_min - extents[2]
+        ? x_min
+        : x_old > x_max + extents[3]
+          ? x_max
+          : x_old
+    ))
+    y_new=$((
+      y_old < y_min - extents[4]
+        ? y_min
+        : y_old > y_max + extents[5]
+          ? y_max
+          : y_old
+    ))
+
+    if [[ $x_new -ne $x_old || $y_new -ne $y_old ]]; then
+      xdotool mousemove $x_new $y_new
+    fi
+  ' \
